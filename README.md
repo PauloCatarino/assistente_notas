@@ -2,46 +2,48 @@
 
 Projeto Python para apoiar o preenchimento inteligente da coluna `Notas` em ficheiros Excel de producao de mobiliario exportados do IMOS.
 
-Nesta fase, o foco esta em consolidar a base de dados e criar a primeira comparacao entre estados do Excel, sem IA e sem logica CNC avancada.
+Nesta fase o foco continua a ser qualidade de dados, sem IA, sem `.mpr` e sem `FINAL_VALIDADO`. O objetivo e melhorar a ligacao entre os estados `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`.
 
 ## Objetivo atual
 
 - importar ficheiros Excel para MySQL
 - bloquear reimportacoes do mesmo ficheiro
 - guardar linhas de `LISTA_ORDENADA` e `LISTAGEM_CUT_RITE`
-- criar uma `chave_ligacao` simples entre estados
-- gerar a primeira comparacao entre `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`
-- deixar a estrutura pronta para um futuro `FINAL_VALIDADO`
+- gerar `chave_ligacao` v2 para agrupar candidatos
+- comparar estados com correspondencia forte e tolerante
+- classificar diferencas de forma mais util para leitura humana
+- gerar um resumo simples no terminal e um CSV opcional
 
 ## Estados atualmente usados
 
 - `ORIGINAL_IMOS`
 - `TRANSFORMADO_AUTOMATION`
 
-O estado `FINAL_VALIDADO` ainda nao esta a ser usado, mas a estrutura ja foi preparada para o futuro.
+O estado `FINAL_VALIDADO` ainda nao esta a ser usado, mas a estrutura continua preparada para essa fase.
 
 ## Estrutura do projeto
 
 ```text
 assistente_notas/
-├── .env.example
-├── .gitignore
-├── README.md
-├── importar_obra_excel.py
-├── main.py
-├── requirements.txt
-├── testar_duplicados_e_comparacao.py
-├── config/
-├── data/
-├── database/
-├── importers/
-├── logs/
-├── models/
-├── parsers/
-├── services/
-├── sql/
-├── tests/
-└── utils/
+|-- .env.example
+|-- .gitignore
+|-- README.md
+|-- gerar_resumo_comparacao.py
+|-- importar_obra_excel.py
+|-- main.py
+|-- requirements.txt
+|-- testar_duplicados_e_comparacao.py
+|-- config/
+|-- data/
+|-- database/
+|-- importers/
+|-- logs/
+|-- models/
+|-- parsers/
+|-- services/
+|-- sql/
+|-- tests/
+`-- utils/
 ```
 
 ## Requisitos
@@ -93,10 +95,7 @@ Este script:
 - mapeia as colunas configuradas
 - insere a obra na tabela `obras`
 - insere as linhas na tabela `linhas_obra`
-- guarda o `estado_origem`
-- guarda `nome_folha_origem`
-- guarda `linha_excel`
-- guarda `chave_ligacao`
+- guarda `estado_origem`, `nome_folha_origem`, `linha_excel` e `chave_ligacao`
 
 ## Como funciona o bloqueio de duplicados
 
@@ -115,7 +114,7 @@ Se encontrar uma obra existente:
 - as linhas nao voltam a ser inseridas
 - o terminal mostra um aviso claro
 
-Campos usados na tabela `obras` para esta fase:
+Campos usados na tabela `obras` nesta fase:
 
 - `nome_ficheiro`
 - `ficheiro_origem`
@@ -123,70 +122,121 @@ Campos usados na tabela `obras` para esta fase:
 - `tamanho_ficheiro`
 - `data_ficheiro`
 
-## Como funciona a chave_ligacao
+## Como funciona a chave_ligacao v2
 
-A `chave_ligacao` e a primeira versao da regra que tenta ligar linhas equivalentes entre estados.
+A `chave_ligacao` v2 ja nao tenta resolver a ligacao sozinha. Nesta fase ela serve para agrupar candidatos provaveis.
 
-Campos usados nesta versao:
+Campos usados para a chave tolerante:
 
 - `descricao`
 - `material`
-- `comp`
-- `larg`
-- `qt`
 - `artigo`
 - `veio`
 
+Motivo:
+
+- estes campos tendem a ser mais estaveis entre `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`
+- `comp`, `larg` e `qt` podem mudar, arredondar ou surgir trocados apos o Automation
+
 Regras usadas:
 
-- normalizacao de texto
-- arredondamento simples de numeros
+- normalizacao de espacos
+- normalizacao de maiusculas e minusculas
+- remocao de acentos para comparacao
+- conversao de nulos para vazio controlado
 - geracao de um hash curto e estavel
 
-Importante:
-esta e apenas uma primeira versao.
-Foi feita para ser simples, previsivel e facil de evoluir.
-No futuro pode ser melhorada sem partir a arquitetura.
+## Como funciona a correspondencia v2
 
-## Como funciona a comparacao entre estados
+A comparacao trabalha por niveis:
 
-O sistema compara:
+1. `FORTE`
+   quando a assinatura completa coincide em `descricao`, `material`, `comp`, `larg`, `qt`, `artigo` e `veio`
+2. `TOLERANTE`
+   quando a assinatura forte nao coincide, mas o score de semelhanca passa o limiar minimo
+3. `SEM_PAR`
+   quando nenhuma ligacao aceitavel e encontrada
 
-- linhas `ORIGINAL_IMOS`
-- linhas `TRANSFORMADO_AUTOMATION`
-
-Processo usado nesta fase:
-
-1. agrupar por `obra_id` e `chave_ligacao`
-2. ordenar as linhas pela `linha_excel`
-3. ligar pares por posicao dentro de cada chave
-4. comparar os campos principais
-5. guardar as diferencas na tabela `diferencas_estados`
-
-Campos comparados nesta fase:
+Campos considerados no score:
 
 - `descricao`
 - `material`
-- `comp`
-- `larg`
-- `qt`
 - `artigo`
-- `notas`
-- `esp`
-- `orla_esq`
-- `orla_dir`
-- `orla_cima`
-- `orla_baixo`
-- `cnc_1_raw`
-- `cnc_2_raw`
+- `veio`
+- `qt`
+- `comp` e `larg`
 
-Tipos de diferenca usados:
+Detalhes importantes da v2:
 
-- `VALOR_ALTERADO`
-- `AUSENTE_NO_ORIGINAL`
-- `AUSENTE_NO_TRANSFORMADO`
+- `comp` e `larg` aceitam pequenas tolerancias numericas
+- `comp` e `larg` tambem podem ser comparados de forma cruzada
+- isto ajuda quando a peca aparece rodada entre os dois estados
 
-## Como testar esta fase
+Importante:
+esta v2 ainda e uma heuristica simples. Foi feita para melhorar ligacoes corretas sem introduzir logica "magica". Pode evoluir mais tarde de forma controlada.
+
+## Como funciona a classificacao das diferencas
+
+As diferencas passam a ser classificadas com tipos mais uteis:
+
+- `DESCRICAO_ALTERADA`
+- `MATERIAL_ALTERADO`
+- `ARTIGO_ALTERADO`
+- `VEIO_ALTERADO`
+- `MEDIDA_ALTERADA`
+- `ORLA_ALTERADA`
+- `CNC_ALTERADO`
+- `NOTA_ADICIONADA`
+- `NOTA_REMOVIDA`
+- `NOTA_ALTERADA`
+- `LINHA_SEM_PAR`
+- `CAMPO_ALTERADO`
+
+As diferencas continuam a ser guardadas em `diferencas_estados`, agora com:
+
+- `nivel_correspondencia`
+- `score_correspondencia`
+
+## Como gerar um resumo da comparacao
+
+Script novo desta fase:
+
+```powershell
+cd assistente_notas
+python gerar_resumo_comparacao.py --ficheiro Lista_Material.xlsm
+```
+
+Este script mostra:
+
+- `obra_id`
+- total de linhas em `ORIGINAL_IMOS`
+- total de linhas em `TRANSFORMADO_AUTOMATION`
+- total de chaves ligadas
+- total de pares ligados
+- pares por nivel `FORTE` e `TOLERANTE`
+- total de linhas sem correspondencia
+- total de diferencas
+- top tipos de diferenca
+
+Para gerar tambem um CSV de apoio:
+
+```powershell
+cd assistente_notas
+python gerar_resumo_comparacao.py --ficheiro Lista_Material.xlsm --gerar-csv
+```
+
+CSV por omissao:
+
+- `logs/comparacao_obra_<id>.csv`
+
+Tambem podes escolher o caminho:
+
+```powershell
+cd assistente_notas
+python gerar_resumo_comparacao.py --obra-id 1 --csv logs\minha_comparacao.csv
+```
+
+## Como testar duplicado + comparacao
 
 O script de teste desta ronda e:
 
@@ -199,13 +249,8 @@ Este script:
 
 - tenta importar novamente o ficheiro
 - mostra se o duplicado foi bloqueado
-- gera a comparacao entre os dois estados
-- mostra no terminal:
-  - `obra_id`
-  - numero de linhas por estado
-  - numero de chaves ligadas
-  - numero de pares ligados
-  - numero de diferencas encontradas
+- recalcula a comparacao entre estados
+- mostra os totais principais, os pares por nivel e o top de diferencas
 
 ## Base de dados MySQL
 
@@ -236,9 +281,9 @@ python -m unittest
 ## Limites intencionais desta fase
 
 - ainda nao existe `FINAL_VALIDADO`
-- ainda nao existe leitura funcional de `.mpr` dentro desta comparacao
+- ainda nao existe integracao `.mpr` nesta comparacao
 - ainda nao existe sugestao inteligente de notas
 - ainda nao existe analise estatistica avancada
 
 Isto e intencional.
-O objetivo desta ronda e consolidar consistencia de dados e comparacao entre estados.
+O objetivo desta ronda e melhorar a qualidade da correspondencia entre estados antes de avancar para as fases seguintes.

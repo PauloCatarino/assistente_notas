@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from pathlib import Path
 
 from services.servico_comparacao_estados import ServicoComparacaoEstados
@@ -54,11 +55,26 @@ def main() -> int:
     print("")
     print("Resultado da comparacao:")
     print(f"obra_id: {resumo.obra_id}")
-    print(f"linhas {resumo.estado_base}: {resumo.total_linhas_base}")
-    print(f"linhas {resumo.estado_alvo}: {resumo.total_linhas_alvo}")
-    print(f"n de chaves ligadas: {resumo.total_chaves_ligadas}")
-    print(f"n de pares ligados: {resumo.total_pares_ligados}")
-    print(f"n de diferencas encontradas: {resumo.total_diferencas}")
+    print(f"total linhas {resumo.estado_base}: {resumo.total_linhas_base}")
+    print(f"total linhas {resumo.estado_alvo}: {resumo.total_linhas_alvo}")
+    print(f"total chaves ligadas: {resumo.total_chaves_ligadas}")
+    print(f"total pares ligados: {resumo.total_pares_ligados}")
+    print(f"total linhas sem correspondencia: {resumo.total_linhas_sem_correspondencia}")
+    print(f"  - sem par em {resumo.estado_base}: {resumo.total_sem_correspondencia_base}")
+    print(f"  - sem par em {resumo.estado_alvo}: {resumo.total_sem_correspondencia_alvo}")
+    print(f"total diferencas encontradas: {resumo.total_diferencas}")
+
+    contagem_niveis = Counter(par.nivel_correspondencia for par in resumo.pares_correspondencia)
+    if contagem_niveis:
+        print("pares por nivel:")
+        for nivel_correspondencia, total in sorted(contagem_niveis.items()):
+            print(f"- {nivel_correspondencia}: {total}")
+
+    top_tipos = servico_comparacao.top_tipos_diferenca(resumo)
+    if top_tipos:
+        print("top tipos de diferenca:")
+        for tipo_diferenca, total in top_tipos:
+            print(f"- {tipo_diferenca}: {total}")
 
     return 0
 

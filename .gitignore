@@ -18,6 +18,7 @@ __pycache__/
 
 # Logs
 logs/*.log
+logs/*.csv
 
 # Dados locais de teste
 data/excel/*.xlsx

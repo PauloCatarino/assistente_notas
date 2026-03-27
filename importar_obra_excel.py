@@ -22,7 +22,7 @@ def criar_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    """Executa a importação e mostra um resumo claro no terminal."""
+    """Executa a importacao e mostra um resumo claro no terminal."""
     argumentos = criar_parser().parse_args()
     caminho_ficheiro = Path(argumentos.ficheiro).resolve()
 
@@ -31,7 +31,7 @@ def main() -> int:
     try:
         resultado = servico.importar_ficheiro_excel(caminho_ficheiro)
     except Exception as erro:
-        print(f"Erro na importação: {erro}")
+        print(f"Erro na importacao: {erro}")
         return 1
 
     if resultado.duplicado_bloqueado:

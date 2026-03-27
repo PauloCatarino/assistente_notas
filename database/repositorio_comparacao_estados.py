@@ -21,8 +21,22 @@ class RepositorioComparacaoEstados:
             valor_original TEXT NULL,
             valor_transformado TEXT NULL,
             tipo_diferenca VARCHAR(50) NOT NULL,
+            nivel_correspondencia VARCHAR(20) NULL,
+            score_correspondencia INT NULL,
             criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
+    """
+
+    DEFINICOES_COLUNAS_DIFERENCAS = {
+        "nivel_correspondencia": "VARCHAR(20) NULL",
+        "score_correspondencia": "INT NULL",
+    }
+
+    SQL_LISTAR_COLUNAS_TABELA = """
+        SELECT COLUMN_NAME
+        FROM information_schema.columns
+        WHERE table_schema = %s
+          AND table_name = %s
     """
 
     SQL_LIMPAR_DIFERENCAS_OBRA = """
@@ -39,9 +53,11 @@ class RepositorioComparacaoEstados:
             campo,
             valor_original,
             valor_transformado,
-            tipo_diferenca
+            tipo_diferenca,
+            nivel_correspondencia,
+            score_correspondencia
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     SQL_OBTER_LINHAS_POR_ESTADO = """
@@ -92,6 +108,8 @@ class RepositorioComparacaoEstados:
         finally:
             cursor.close()
 
+        self._garantir_colunas_tabela(conexao, "diferencas_estados", self.DEFINICOES_COLUNAS_DIFERENCAS)
+
     def limpar_diferencas_obra(self, conexao: Any, obra_id: int) -> None:
         """Remove diferencas anteriores da obra antes de recalcular."""
         cursor = conexao.cursor()
@@ -119,6 +137,8 @@ class RepositorioComparacaoEstados:
                     diferenca.valor_original,
                     diferenca.valor_transformado,
                     diferenca.tipo_diferenca,
+                    diferenca.nivel_correspondencia or None,
+                    diferenca.score_correspondencia,
                 )
                 for diferenca in diferencas
             ]
@@ -179,3 +199,41 @@ class RepositorioComparacaoEstados:
             )
 
         return linhas
+
+    def _garantir_colunas_tabela(
+        self,
+        conexao: Any,
+        nome_tabela: str,
+        definicoes_colunas: dict[str, str],
+    ) -> None:
+        """Garante as colunas minimas de uma tabela."""
+        colunas_existentes = self._obter_colunas_tabela(conexao, nome_tabela)
+        cursor = conexao.cursor()
+
+        try:
+            for nome_coluna, definicao_sql in definicoes_colunas.items():
+                if nome_coluna in colunas_existentes:
+                    continue
+
+                sql = f"ALTER TABLE {nome_tabela} ADD COLUMN {nome_coluna} {definicao_sql}"
+                try:
+                    cursor.execute(sql)
+                except Exception as erro:
+                    if "Duplicate column name" in str(erro):
+                        continue
+                    raise
+        finally:
+            cursor.close()
+
+    def _obter_colunas_tabela(self, conexao: Any, nome_tabela: str) -> set[str]:
+        """Le a lista de colunas ja existentes numa tabela."""
+        cursor = conexao.cursor()
+
+        try:
+            cursor.execute(
+                self.SQL_LISTAR_COLUNAS_TABELA,
+                (conexao.database, nome_tabela),
+            )
+            return {str(linha[0]) for linha in cursor.fetchall()}
+        finally:
+            cursor.close()

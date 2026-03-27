@@ -1,4 +1,4 @@
-"""Testes para chave_ligacao e comparacao entre estados."""
+"""Testes para chave_ligacao v2 e comparacao entre estados."""
 
 from __future__ import annotations
 
@@ -8,20 +8,20 @@ from models.schemas import LinhaObra
 from services.servico_comparacao_estados import ServicoComparacaoEstados
 
 
-class TestChaveLigacao(unittest.TestCase):
-    """Valida a primeira versao da chave de ligacao."""
+class TestChaveLigacaoV2(unittest.TestCase):
+    """Valida a segunda versao da estrategia de ligacao."""
 
-    def test_mesma_chave_para_valores_equivalentes(self) -> None:
-        """Deve gerar a mesma chave para variacoes simples de formato."""
+    def test_chave_tolerante_mantem_grupo_mesmo_com_medidas_diferentes(self) -> None:
+        """A chave v2 deve agrupar candidatos equivalentes pelos campos mais estaveis."""
         linha_original = LinhaObra(
             obra_id=1,
             estado_origem="ORIGINAL_IMOS",
             nome_folha_origem="LISTA_ORDENADA",
             linha_excel=10,
-            descricao="Costa",
-            material="Material A",
+            descricao="Costa lateral",
+            material="MDF Branco",
             comp=1000,
-            larg=500.0,
+            larg=500,
             qt=2,
             artigo="ART_01",
             veio="N",
@@ -32,23 +32,27 @@ class TestChaveLigacao(unittest.TestCase):
             estado_origem="TRANSFORMADO_AUTOMATION",
             nome_folha_origem="LISTAGEM_CUT_RITE",
             linha_excel=8,
-            descricao=" costa ",
-            material="material a",
-            comp=1000.0001,
-            larg=500,
-            qt=2.0,
+            descricao="  costa lateral ",
+            material="mdf branco",
+            comp=1005,
+            larg=498,
+            qt=3,
             artigo="art_01",
             veio="n",
         )
 
         self.assertEqual(linha_original.chave_ligacao, linha_transformada.chave_ligacao)
+        self.assertNotEqual(
+            linha_original.gerar_assinatura_forte(),
+            linha_transformada.gerar_assinatura_forte(),
+        )
 
 
-class TestComparacaoEstados(unittest.TestCase):
-    """Valida a primeira comparacao estruturada."""
+class TestComparacaoEstadosV2(unittest.TestCase):
+    """Valida a ligacao tolerante e a classificacao das diferencas."""
 
-    def test_comparar_linhas_em_memoria(self) -> None:
-        """Deve identificar alteracoes e ausencias simples."""
+    def test_correspondencia_tolerante_com_medidas_trocadas(self) -> None:
+        """Deve ligar linhas equivalentes mesmo quando comp e larg surgem trocados."""
         servico = ServicoComparacaoEstados()
 
         linha_original = LinhaObra(
@@ -57,14 +61,14 @@ class TestComparacaoEstados(unittest.TestCase):
             estado_origem="ORIGINAL_IMOS",
             nome_folha_origem="LISTA_ORDENADA",
             linha_excel=10,
-            descricao="Costa",
-            material="Material A",
+            descricao="Prateleira",
+            material="MDF Branco",
             comp=1000,
             larg=500,
-            qt=2,
-            artigo="ART_01",
+            qt=1,
+            artigo="PRAT_01",
             veio="N",
-            notas="Sem nota",
+            notas="",
         )
 
         linha_transformada = LinhaObra(
@@ -72,18 +76,42 @@ class TestComparacaoEstados(unittest.TestCase):
             obra_id=1,
             estado_origem="TRANSFORMADO_AUTOMATION",
             nome_folha_origem="LISTAGEM_CUT_RITE",
-            linha_excel=8,
-            descricao="Costa",
-            material="Material A",
-            comp=1000,
-            larg=500,
-            qt=2,
-            artigo="ART_01",
-            veio="N",
-            notas="Nota alterada",
+            linha_excel=7,
+            descricao="prateleira",
+            material="mdf branco",
+            comp=500,
+            larg=1000,
+            qt=1,
+            artigo="prat_01",
+            veio="n",
+            notas="Nota do automation",
         )
 
-        linha_sem_par = LinhaObra(
+        resumo = servico.comparar_linhas_em_memoria(
+            obra_id=1,
+            linhas_base=[linha_original],
+            linhas_alvo=[linha_transformada],
+            estado_base="ORIGINAL_IMOS",
+            estado_alvo="TRANSFORMADO_AUTOMATION",
+        )
+
+        self.assertEqual(resumo.total_chaves_ligadas, 1)
+        self.assertEqual(resumo.total_pares_ligados, 1)
+        self.assertEqual(resumo.total_linhas_sem_correspondencia, 0)
+
+        par = resumo.pares_correspondencia[0]
+        self.assertEqual(par.nivel_correspondencia, "TOLERANTE")
+        self.assertGreaterEqual(par.score_correspondencia, 65)
+
+        tipos = {diferenca.tipo_diferenca for diferenca in resumo.diferencas}
+        self.assertIn("MEDIDA_ALTERADA", tipos)
+        self.assertIn("NOTA_ADICIONADA", tipos)
+
+    def test_classifica_linha_sem_par(self) -> None:
+        """Deve marcar claramente uma linha sem correspondencia."""
+        servico = ServicoComparacaoEstados()
+
+        linha_original = LinhaObra(
             id=3,
             obra_id=1,
             estado_origem="ORIGINAL_IMOS",
@@ -100,24 +128,19 @@ class TestComparacaoEstados(unittest.TestCase):
 
         resumo = servico.comparar_linhas_em_memoria(
             obra_id=1,
-            linhas_base=[linha_original, linha_sem_par],
-            linhas_alvo=[linha_transformada],
+            linhas_base=[linha_original],
+            linhas_alvo=[],
             estado_base="ORIGINAL_IMOS",
             estado_alvo="TRANSFORMADO_AUTOMATION",
         )
 
-        self.assertEqual(resumo.total_linhas_base, 2)
-        self.assertEqual(resumo.total_linhas_alvo, 1)
-        self.assertEqual(resumo.total_chaves_ligadas, 1)
-        self.assertEqual(resumo.total_pares_ligados, 1)
-        self.assertEqual(resumo.total_diferencas, 2)
-
-        tipos = {diferenca.tipo_diferenca for diferenca in resumo.diferencas}
-        campos = {diferenca.campo for diferenca in resumo.diferencas}
-
-        self.assertIn("VALOR_ALTERADO", tipos)
-        self.assertIn("AUSENTE_NO_TRANSFORMADO", tipos)
-        self.assertIn("notas", campos)
+        self.assertEqual(resumo.total_pares_ligados, 0)
+        self.assertEqual(resumo.total_sem_correspondencia_base, 1)
+        self.assertEqual(resumo.total_sem_correspondencia_alvo, 0)
+        self.assertEqual(resumo.total_linhas_sem_correspondencia, 1)
+        self.assertEqual(resumo.total_diferencas, 1)
+        self.assertEqual(resumo.diferencas[0].tipo_diferenca, "LINHA_SEM_PAR")
+        self.assertEqual(resumo.diferencas[0].nivel_correspondencia, "SEM_PAR")
 
 
 if __name__ == "__main__":

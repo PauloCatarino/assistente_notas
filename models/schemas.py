@@ -74,10 +74,16 @@ class LinhaObra:
             self.chave_ligacao = self.gerar_chave_ligacao()
 
     def gerar_chave_ligacao(self) -> str:
-        """Calcula a primeira versao da chave de ligacao."""
+        """Calcula a versao atual da chave de ligacao."""
         from utils.chave_ligacao import gerar_chave_ligacao_linha
 
         return gerar_chave_ligacao_linha(self)
+
+    def gerar_assinatura_forte(self) -> str:
+        """Calcula a assinatura forte da linha."""
+        from utils.chave_ligacao import gerar_assinatura_forte_linha
+
+        return gerar_assinatura_forte_linha(self)
 
     def para_dict(self) -> dict[str, Any]:
         """Converte a instancia para dicionario."""
@@ -120,6 +126,22 @@ class ResultadoImportacaoExcel:
 
 
 @dataclass(slots=True)
+class ParCorrespondencia:
+    """Representa um par ligado entre estados."""
+
+    obra_id: int
+    chave_ligacao: str
+    linha_original_id: int | None
+    linha_transformada_id: int | None
+    nivel_correspondencia: str
+    score_correspondencia: int
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class DiferencaEstado:
     """Representa uma diferenca encontrada entre dois estados."""
 
@@ -131,6 +153,8 @@ class DiferencaEstado:
     valor_original: str | None
     valor_transformado: str | None
     tipo_diferenca: str
+    nivel_correspondencia: str = ""
+    score_correspondencia: int = 0
 
     def para_dict(self) -> dict[str, Any]:
         """Converte a instancia para dicionario."""
@@ -139,7 +163,7 @@ class DiferencaEstado:
 
 @dataclass(slots=True)
 class ResumoComparacaoEstados:
-    """Resumo simples da primeira comparacao entre estados."""
+    """Resumo simples da comparacao entre estados."""
 
     obra_id: int
     estado_base: str
@@ -148,7 +172,11 @@ class ResumoComparacaoEstados:
     total_linhas_alvo: int
     total_chaves_ligadas: int
     total_pares_ligados: int
+    total_sem_correspondencia_base: int
+    total_sem_correspondencia_alvo: int
+    total_linhas_sem_correspondencia: int
     total_diferencas: int
+    pares_correspondencia: list[ParCorrespondencia] = field(default_factory=list)
     diferencas: list[DiferencaEstado] = field(default_factory=list)
 
     def para_dict(self) -> dict[str, Any]:

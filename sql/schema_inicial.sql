@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS diferencas_estados (
     valor_original TEXT NULL,
     valor_transformado TEXT NULL,
     tipo_diferenca VARCHAR(50) NOT NULL,
+    nivel_correspondencia VARCHAR(20) NULL,
+    score_correspondencia INT NULL,
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
