@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any
 
 
@@ -14,20 +15,25 @@ class ObraExcel:
     nome_obra: str
     caminho_ficheiro: str
     folhas_disponiveis: list[str] = field(default_factory=list)
+    nome_ficheiro: str = ""
+    hash_ficheiro: str = ""
+    tamanho_ficheiro: int | None = None
+    data_ficheiro: datetime | None = None
 
     def para_dict(self) -> dict[str, Any]:
-        """Converte a instância para dicionário."""
+        """Converte a instancia para dicionario."""
         return asdict(self)
 
 
 @dataclass(slots=True)
 class LinhaObra:
-    """Representa uma linha preparada para inserção na tabela `linhas_obra`."""
+    """Representa uma linha preparada para insercao na tabela `linhas_obra`."""
 
     obra_id: int | None
     estado_origem: str
     nome_folha_origem: str
     linha_excel: int
+    id: int | None = None
     numero_linha: int | None = None
     referencia: str = ""
     designacao: str = ""
@@ -53,6 +59,7 @@ class LinhaObra:
     id_linha_excel: str = ""
     esp_mat: float | None = None
     esp_final: float | None = None
+    chave_ligacao: str = ""
     dados_brutos: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -63,8 +70,17 @@ class LinhaObra:
         if not self.designacao:
             self.designacao = self.descricao
 
+        if not self.chave_ligacao:
+            self.chave_ligacao = self.gerar_chave_ligacao()
+
+    def gerar_chave_ligacao(self) -> str:
+        """Calcula a primeira versao da chave de ligacao."""
+        from utils.chave_ligacao import gerar_chave_ligacao_linha
+
+        return gerar_chave_ligacao_linha(self)
+
     def para_dict(self) -> dict[str, Any]:
-        """Converte a instância para dicionário."""
+        """Converte a instancia para dicionario."""
         return asdict(self)
 
 
@@ -81,13 +97,13 @@ class ResultadoLeituraFolhaExcel:
     avisos: list[str] = field(default_factory=list)
 
     def total_linhas(self) -> int:
-        """Devolve o número total de linhas lidas."""
+        """Devolve o numero total de linhas lidas."""
         return len(self.linhas)
 
 
 @dataclass(slots=True)
 class ResultadoImportacaoExcel:
-    """Resumo simples da importação completa de um ficheiro Excel."""
+    """Resumo simples da importacao completa de um ficheiro Excel."""
 
     nome_obra: str
     caminho_ficheiro: str
@@ -95,9 +111,48 @@ class ResultadoImportacaoExcel:
     totais_por_folha: dict[str, int] = field(default_factory=dict)
     estados_por_folha: dict[str, str] = field(default_factory=dict)
     avisos: list[str] = field(default_factory=list)
+    duplicado_bloqueado: bool = False
+    mensagem: str = ""
 
     def para_dict(self) -> dict[str, Any]:
-        """Converte a instância para dicionário."""
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class DiferencaEstado:
+    """Representa uma diferenca encontrada entre dois estados."""
+
+    obra_id: int
+    chave_ligacao: str
+    linha_original_id: int | None
+    linha_transformada_id: int | None
+    campo: str
+    valor_original: str | None
+    valor_transformado: str | None
+    tipo_diferenca: str
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ResumoComparacaoEstados:
+    """Resumo simples da primeira comparacao entre estados."""
+
+    obra_id: int
+    estado_base: str
+    estado_alvo: str
+    total_linhas_base: int
+    total_linhas_alvo: int
+    total_chaves_ligadas: int
+    total_pares_ligados: int
+    total_diferencas: int
+    diferencas: list[DiferencaEstado] = field(default_factory=list)
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
         return asdict(self)
 
 
@@ -111,7 +166,7 @@ class ProgramaCNC:
     total_linhas: int = 0
 
     def para_dict(self) -> dict[str, Any]:
-        """Converte a instância para dicionário."""
+        """Converte a instancia para dicionario."""
         return asdict(self)
 
 
@@ -125,13 +180,13 @@ class TokenCNC:
     origem: str | None = None
 
     def para_dict(self) -> dict[str, Any]:
-        """Converte a instância para dicionário."""
+        """Converte a instancia para dicionario."""
         return asdict(self)
 
 
 @dataclass(slots=True)
 class SugestaoNotaLog:
-    """Representa um registo simples de sugestão de nota."""
+    """Representa um registo simples de sugestao de nota."""
 
     linha_obra_id: int | None
     sugestao_texto: str | None
@@ -143,5 +198,5 @@ class SugestaoNotaLog:
     criado_em: str = ""
 
     def para_dict(self) -> dict[str, Any]:
-        """Converte a instância para dicionário."""
+        """Converte a instancia para dicionario."""
         return asdict(self)

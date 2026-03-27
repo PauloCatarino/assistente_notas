@@ -1,5 +1,5 @@
 -- Esquema inicial simples para o projeto assistente_notas.
--- Objetivo: criar uma base estável e legível para evolução faseada.
+-- Objetivo: criar uma base estavel e legivel para evolucao faseada.
 
 CREATE DATABASE IF NOT EXISTS assistente_notas
 CHARACTER SET utf8mb4
@@ -12,7 +12,11 @@ CREATE TABLE IF NOT EXISTS obras (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     codigo_obra VARCHAR(100) NULL,
     nome_obra VARCHAR(255) NOT NULL,
+    nome_ficheiro VARCHAR(255) NULL,
     ficheiro_origem VARCHAR(500) NOT NULL,
+    hash_ficheiro VARCHAR(64) NULL,
+    tamanho_ficheiro BIGINT NULL,
+    data_ficheiro DATETIME NULL,
     folha_origem VARCHAR(100) NOT NULL DEFAULT 'IMPORTACAO_EXCEL',
     observacoes TEXT NULL,
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -26,6 +30,7 @@ CREATE TABLE IF NOT EXISTS linhas_obra (
     linha_excel INT NOT NULL,
     estado_origem VARCHAR(50) NOT NULL,
     nome_folha_origem VARCHAR(100) NOT NULL,
+    chave_ligacao VARCHAR(64) NULL,
     referencia VARCHAR(150) NULL,
     designacao VARCHAR(255) NULL,
     descricao VARCHAR(255) NULL,
@@ -57,6 +62,20 @@ CREATE TABLE IF NOT EXISTS linhas_obra (
         FOREIGN KEY (obra_id) REFERENCES obras (id)
 );
 
+-- Tabela simples de diferencas entre estados da mesma obra.
+CREATE TABLE IF NOT EXISTS diferencas_estados (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    obra_id BIGINT NOT NULL,
+    chave_ligacao VARCHAR(64) NOT NULL,
+    linha_original_id BIGINT NULL,
+    linha_transformada_id BIGINT NULL,
+    campo VARCHAR(100) NOT NULL,
+    valor_original TEXT NULL,
+    valor_transformado TEXT NULL,
+    tipo_diferenca VARCHAR(50) NOT NULL,
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Programas CNC lidos de ficheiros .mpr.
 CREATE TABLE IF NOT EXISTS cnc_programas (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -66,7 +85,7 @@ CREATE TABLE IF NOT EXISTS cnc_programas (
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabela de relação entre linhas da obra e programas CNC.
+-- Tabela de relacao entre linhas da obra e programas CNC.
 CREATE TABLE IF NOT EXISTS linhas_obra_cnc (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     linha_obra_id BIGINT NOT NULL,
@@ -81,7 +100,7 @@ CREATE TABLE IF NOT EXISTS linhas_obra_cnc (
     CONSTRAINT uk_linha_programa UNIQUE (linha_obra_id, cnc_programa_id)
 );
 
--- Tokens extraídos dos programas CNC.
+-- Tokens extraidos dos programas CNC.
 CREATE TABLE IF NOT EXISTS cnc_tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     cnc_programa_id BIGINT NOT NULL,
@@ -94,7 +113,7 @@ CREATE TABLE IF NOT EXISTS cnc_tokens (
     INDEX idx_cnc_tokens_token (token)
 );
 
--- Registo de sugestões feitas ou analisadas pelo sistema.
+-- Registo de sugestoes feitas ou analisadas pelo sistema.
 CREATE TABLE IF NOT EXISTS sugestoes_notas_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     linha_obra_id BIGINT NULL,

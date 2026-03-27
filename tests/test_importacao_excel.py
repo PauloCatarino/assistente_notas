@@ -38,6 +38,8 @@ class TestImportadorFolhasExcel(unittest.TestCase):
             self.assertEqual(resultado_transformado.total_linhas(), 1)
             self.assertEqual(resultado_original.linhas[0].descricao, "Costa")
             self.assertEqual(resultado_transformado.linhas[0].id_linha_excel, "1")
+            self.assertTrue(resultado_original.linhas[0].chave_ligacao)
+            self.assertTrue(resultado_transformado.linhas[0].chave_ligacao)
 
     @staticmethod
     def _criar_workbook_teste(caminho_excel: Path) -> None:

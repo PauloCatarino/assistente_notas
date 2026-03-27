@@ -1,48 +1,24 @@
 # assistente_notas
 
-Projeto Python para apoiar o preenchimento inteligente da coluna **"Notas"** em ficheiros Excel de produção de mobiliário exportados do IMOS.
+Projeto Python para apoiar o preenchimento inteligente da coluna `Notas` em ficheiros Excel de producao de mobiliario exportados do IMOS.
 
-Nesta fase, o objetivo é criar uma base técnica simples, organizada e fácil de evoluir, sem entrar ainda em lógica avançada de IA.
+Nesta fase, o foco esta em consolidar a base de dados e criar a primeira comparacao entre estados do Excel, sem IA e sem logica CNC avancada.
 
-## Objetivo desta primeira fase
+## Objetivo atual
 
-- Organizar a estrutura do projeto.
-- Preparar a leitura de ficheiros Excel e programas CNC `.mpr`.
-- Preparar a extração de tokens úteis dos ficheiros `.mpr`.
-- Preparar a ligação a MySQL.
-- Criar um ponto de arranque simples para testar o projeto.
-- Deixar a arquitetura pronta para crescer de forma faseada.
+- importar ficheiros Excel para MySQL
+- bloquear reimportacoes do mesmo ficheiro
+- guardar linhas de `LISTA_ORDENADA` e `LISTAGEM_CUT_RITE`
+- criar uma `chave_ligacao` simples entre estados
+- gerar a primeira comparacao entre `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`
+- deixar a estrutura pronta para um futuro `FINAL_VALIDADO`
 
-## Contexto de negócio
+## Estados atualmente usados
 
-Fluxo atual de trabalho:
+- `ORIGINAL_IMOS`
+- `TRANSFORMADO_AUTOMATION`
 
-1. O ficheiro Excel chega do IMOS.
-2. Existe uma folha original chamada `lista_ordenada`.
-3. Depois da macro/botão `Automation`, os dados passam para `LISTAGEM_CUT_RITE`.
-4. São feitas alterações manuais, sobretudo na coluna `Notas`.
-5. O objetivo futuro é aprender padrões históricos e sugerir notas automaticamente ou de forma semi-automática.
-
-Além disso, os ficheiros CNC HOMAG em formato `.mpr` também serão usados como fonte de contexto, porque podem conter tokens relevantes para a sugestão de notas.
-
-## Decisões de arquitetura
-
-Esta estrutura foi escolhida para manter o projeto simples:
-
-- `config/`: centraliza a configuração do projeto e variáveis de ambiente.
-- `database/`: concentra a ligação à base de dados para evitar código espalhado.
-- `importers/`: recebe módulos de importação de ficheiros Excel.
-- `parsers/`: recebe módulos de leitura e análise de ficheiros `.mpr`.
-- `services/`: concentra regras de negócio, incluindo futuras sugestões de notas.
-- `models/`: define estruturas de dados simples com `dataclasses`.
-- `utils/`: funções auxiliares reutilizáveis.
-- `sql/`: guarda o esquema inicial da base de dados.
-- `data/`: pastas sugeridas para colocar ficheiros de teste locais.
-- `logs/`: registos locais úteis durante a fase de desenvolvimento.
-- `tests/`: testes simples para validar a base do projeto.
-
-Motivo principal desta abordagem:
-manter os componentes separados desde o início, mas sem criar complexidade excessiva.
+O estado `FINAL_VALIDADO` ainda nao esta a ser usado, mas a estrutura ja foi preparada para o futuro.
 
 ## Estrutura do projeto
 
@@ -51,8 +27,10 @@ assistente_notas/
 ├── .env.example
 ├── .gitignore
 ├── README.md
+├── importar_obra_excel.py
 ├── main.py
 ├── requirements.txt
+├── testar_duplicados_e_comparacao.py
 ├── config/
 ├── data/
 ├── database/
@@ -72,9 +50,7 @@ assistente_notas/
 - MySQL 8+ recomendado
 - VS Code
 
-## Instalação inicial
-
-No terminal, dentro da pasta do projeto:
+## Instalacao inicial
 
 ```powershell
 cd assistente_notas
@@ -83,10 +59,10 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Configuração do ambiente
+## Configuracao do ambiente
 
-1. Copiar o ficheiro `.env.example` para `.env`.
-2. Ajustar os dados do MySQL.
+1. Copiar `.env.example` para `.env`
+2. preencher os dados reais do MySQL
 
 Exemplo:
 
@@ -101,106 +77,168 @@ cd assistente_notas
 python main.py
 ```
 
-O `main.py` faz um arranque simples:
+## Como funciona a importacao Excel -> MySQL
 
-- carrega a configuração;
-- garante que as pastas principais existem;
-- mostra quantos ficheiros Excel e `.mpr` estão nas pastas de dados;
-- testa a ligação à base de dados apenas se essa opção estiver ativa no `.env`.
-
-## Como testar a importação Excel -> MySQL
-
-Este projeto já inclui um script simples para importar uma obra Excel real:
+O script principal de importacao e:
 
 ```powershell
 cd assistente_notas
 python importar_obra_excel.py --ficheiro Lista_Material.xlsm
 ```
 
-Antes de correr este comando, é necessário criar o ficheiro `.env`
-com credenciais MySQL válidas.
+Este script:
 
-Exemplo:
+- le os metadados do ficheiro Excel
+- identifica as folhas `LISTA_ORDENADA` e `LISTAGEM_CUT_RITE`
+- mapeia as colunas configuradas
+- insere a obra na tabela `obras`
+- insere as linhas na tabela `linhas_obra`
+- guarda o `estado_origem`
+- guarda `nome_folha_origem`
+- guarda `linha_excel`
+- guarda `chave_ligacao`
+
+## Como funciona o bloqueio de duplicados
+
+Antes de importar, o sistema procura se o ficheiro ja foi carregado.
+
+Estrategia usada, por esta ordem:
+
+1. `hash_ficheiro`
+2. `ficheiro_origem` apenas para registos antigos sem hash
+3. `nome_ficheiro + nome_obra + tamanho_ficheiro` apenas para registos antigos sem hash
+
+Se encontrar uma obra existente:
+
+- a importacao e bloqueada
+- a obra nao volta a ser inserida
+- as linhas nao voltam a ser inseridas
+- o terminal mostra um aviso claro
+
+Campos usados na tabela `obras` para esta fase:
+
+- `nome_ficheiro`
+- `ficheiro_origem`
+- `hash_ficheiro`
+- `tamanho_ficheiro`
+- `data_ficheiro`
+
+## Como funciona a chave_ligacao
+
+A `chave_ligacao` e a primeira versao da regra que tenta ligar linhas equivalentes entre estados.
+
+Campos usados nesta versao:
+
+- `descricao`
+- `material`
+- `comp`
+- `larg`
+- `qt`
+- `artigo`
+- `veio`
+
+Regras usadas:
+
+- normalizacao de texto
+- arredondamento simples de numeros
+- geracao de um hash curto e estavel
+
+Importante:
+esta e apenas uma primeira versao.
+Foi feita para ser simples, previsivel e facil de evoluir.
+No futuro pode ser melhorada sem partir a arquitetura.
+
+## Como funciona a comparacao entre estados
+
+O sistema compara:
+
+- linhas `ORIGINAL_IMOS`
+- linhas `TRANSFORMADO_AUTOMATION`
+
+Processo usado nesta fase:
+
+1. agrupar por `obra_id` e `chave_ligacao`
+2. ordenar as linhas pela `linha_excel`
+3. ligar pares por posicao dentro de cada chave
+4. comparar os campos principais
+5. guardar as diferencas na tabela `diferencas_estados`
+
+Campos comparados nesta fase:
+
+- `descricao`
+- `material`
+- `comp`
+- `larg`
+- `qt`
+- `artigo`
+- `notas`
+- `esp`
+- `orla_esq`
+- `orla_dir`
+- `orla_cima`
+- `orla_baixo`
+- `cnc_1_raw`
+- `cnc_2_raw`
+
+Tipos de diferenca usados:
+
+- `VALOR_ALTERADO`
+- `AUSENTE_NO_ORIGINAL`
+- `AUSENTE_NO_TRANSFORMADO`
+
+## Como testar esta fase
+
+O script de teste desta ronda e:
 
 ```powershell
-Copy-Item .env.example .env
+cd assistente_notas
+python testar_duplicados_e_comparacao.py --ficheiro Lista_Material.xlsm
 ```
+
+Este script:
+
+- tenta importar novamente o ficheiro
+- mostra se o duplicado foi bloqueado
+- gera a comparacao entre os dois estados
+- mostra no terminal:
+  - `obra_id`
+  - numero de linhas por estado
+  - numero de chaves ligadas
+  - numero de pares ligados
+  - numero de diferencas encontradas
 
 ## Base de dados MySQL
 
-Foi incluído um ficheiro SQL inicial em:
+Foi incluido um esquema inicial em:
 
 - `sql/schema_inicial.sql`
 
-Tabelas preparadas nesta fase:
+Tabelas principais desta fase:
 
 - `obras`
 - `linhas_obra`
+- `diferencas_estados`
+
+Tabelas preparadas para fases seguintes:
+
 - `cnc_programas`
 - `linhas_obra_cnc`
 - `cnc_tokens`
 - `sugestoes_notas_log`
 
-Para aplicar o esquema:
-
-```sql
-SOURCE caminho/para/schema_inicial.sql;
-```
-
-Ou, no terminal:
-
-```powershell
-mysql -u root -p < sql\schema_inicial.sql
-```
-
-## Como usar os dados locais de teste
-
-Pasta sugerida para ficheiros Excel:
-
-- `data/excel/`
-
-Pasta sugerida para ficheiros CNC:
-
-- `data/mpr/`
-
-Isto permite testar o projeto sem misturar ficheiros de produção com o código.
-
-## Módulos já preparados
-
-- `importers/importar_obras.py`
-  - identifica ficheiros Excel e lê metadados básicos das obras.
-- `importers/importar_excel_cutrite.py`
-  - lê linhas da folha `LISTAGEM_CUT_RITE`.
-- `parsers/ler_mpr.py`
-  - lê o conteúdo base de ficheiros `.mpr`.
-- `parsers/extrair_tokens_mpr.py`
-  - extrai tokens em maiúsculas e com underscore, úteis para análise futura.
-- `services/servico_sugestoes.py`
-  - regista eventos de sugestão e prepara a evolução da lógica de sugestões.
-
-## Testes simples
+## Testes
 
 ```powershell
 cd assistente_notas
 python -m unittest
 ```
 
-## Limitações desta fase
+## Limites intencionais desta fase
 
-- Ainda não existe importação histórica completa para a base de dados.
-- Ainda não existe análise de padrões.
-- Ainda não existe integração com Excel/VBA.
-- Ainda não existe motor real de sugestão para a coluna `Notas`.
+- ainda nao existe `FINAL_VALIDADO`
+- ainda nao existe leitura funcional de `.mpr` dentro desta comparacao
+- ainda nao existe sugestao inteligente de notas
+- ainda nao existe analise estatistica avancada
 
-Estas limitações são intencionais.
-O foco desta fase é criar uma base estável e clara.
-
-## Próxima evolução recomendada
-
-Depois desta base, o passo mais seguro é:
-
-1. definir exatamente que colunas do `LISTAGEM_CUT_RITE` interessam;
-2. importar essas colunas para MySQL;
-3. associar linhas da obra a programas `.mpr`;
-4. guardar tokens extraídos na base de dados;
-5. só depois começar regras simples para sugerir `Notas`.
+Isto e intencional.
+O objetivo desta ronda e consolidar consistencia de dados e comparacao entre estados.

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from models.schemas import ObraExcel
+from utils.helpers import calcular_hash_ficheiro, obter_metadados_ficheiro
 
 try:
     from openpyxl import load_workbook
@@ -13,12 +14,12 @@ except ImportError:  # pragma: no cover - fallback simples
 
 
 class ImportadorObras:
-    """Responsável por localizar ficheiros Excel e ler os seus metadados básicos."""
+    """Responsavel por localizar ficheiros Excel e ler os seus metadados basicos."""
 
     EXTENSOES_VALIDAS = {".xlsx", ".xlsm", ".xls"}
 
     def __init__(self, pasta_origem: Path) -> None:
-        """Guarda a pasta onde os ficheiros Excel serão procurados."""
+        """Guarda a pasta onde os ficheiros Excel serao procurados."""
         self.pasta_origem = Path(pasta_origem)
 
     def listar_ficheiros_excel(self) -> list[Path]:
@@ -35,13 +36,17 @@ class ImportadorObras:
         )
 
     def ler_metadados_obra(self, caminho_ficheiro: Path) -> ObraExcel:
-        """Lê informação simples do ficheiro para representar uma obra.
+        """Le informacao simples do ficheiro para representar uma obra.
 
-        Nesta fase, o nome da obra é derivado do nome do ficheiro.
-        Esta decisão é simples, previsível e suficiente para arrancar.
+        Nesta fase, o nome da obra e derivado do nome do ficheiro.
+        Tambem recolhemos metadados tecnicos para bloquear duplicados.
         """
         if load_workbook is None:
             raise RuntimeError("Instale `openpyxl` para ler ficheiros Excel.")
+
+        caminho_ficheiro = Path(caminho_ficheiro).resolve()
+        nome_ficheiro, tamanho_ficheiro, data_ficheiro = obter_metadados_ficheiro(caminho_ficheiro)
+        hash_ficheiro = calcular_hash_ficheiro(caminho_ficheiro)
 
         workbook = load_workbook(filename=caminho_ficheiro, read_only=True, data_only=True)
         try:
@@ -54,10 +59,14 @@ class ImportadorObras:
             nome_obra=caminho_ficheiro.stem,
             caminho_ficheiro=str(caminho_ficheiro),
             folhas_disponiveis=folhas_disponiveis,
+            nome_ficheiro=nome_ficheiro,
+            hash_ficheiro=hash_ficheiro,
+            tamanho_ficheiro=tamanho_ficheiro,
+            data_ficheiro=data_ficheiro,
         )
 
     def importar_pasta(self) -> list[ObraExcel]:
-        """Importa os metadados básicos de todos os ficheiros Excel encontrados."""
+        """Importa os metadados basicos de todos os ficheiros Excel encontrados."""
         obras: list[ObraExcel] = []
 
         for caminho_ficheiro in self.listar_ficheiros_excel():

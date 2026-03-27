@@ -34,7 +34,11 @@ def main() -> int:
         print(f"Erro na importação: {erro}")
         return 1
 
-    print(f"Obra inserida: {resultado.nome_obra}")
+    if resultado.duplicado_bloqueado:
+        print(resultado.mensagem)
+    else:
+        print(f"Obra inserida: {resultado.nome_obra}")
+
     print(f"ID da obra: {resultado.obra_id}")
 
     for nome_folha, total in resultado.totais_por_folha.items():
