@@ -13,6 +13,12 @@ CREATE TABLE IF NOT EXISTS obras (
     codigo_obra VARCHAR(100) NULL,
     nome_obra VARCHAR(255) NOT NULL,
     nome_ficheiro VARCHAR(255) NULL,
+    nome_base VARCHAR(150) NULL,
+    referencia_obra VARCHAR(150) NULL,
+    num_encomenda_phc VARCHAR(50) NULL,
+    versao_obra VARCHAR(20) NULL,
+    ano_obra VARCHAR(20) NULL,
+    cliente_codigo VARCHAR(100) NULL,
     ficheiro_origem VARCHAR(500) NOT NULL,
     hash_ficheiro VARCHAR(64) NULL,
     tamanho_ficheiro BIGINT NULL,
@@ -128,4 +134,29 @@ CREATE TABLE IF NOT EXISTS sugestoes_notas_log (
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_sugestoes_notas_linha
         FOREIGN KEY (linha_obra_id) REFERENCES linhas_obra (id)
+);
+
+-- Feedback manual recolhido a partir dos ficheiros de validacao.
+CREATE TABLE IF NOT EXISTS feedback_sugestoes_notas (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    obra_id BIGINT NOT NULL,
+    linha_excel INT NOT NULL,
+    descricao VARCHAR(255) NULL,
+    material VARCHAR(255) NULL,
+    artigo VARCHAR(255) NULL,
+    notas_atual VARCHAR(500) NULL,
+    sugestao_1 VARCHAR(500) NULL,
+    score_1 INT NULL,
+    sugestao_2 VARCHAR(500) NULL,
+    score_2 INT NULL,
+    justificacao TEXT NULL,
+    validacao_utilizador VARCHAR(100) NULL,
+    nota_final_utilizador VARCHAR(500) NULL,
+    data_feedback DATETIME NOT NULL,
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_feedback_sugestoes_obras
+        FOREIGN KEY (obra_id) REFERENCES obras (id),
+    CONSTRAINT uk_feedback_sugestao_obra_linha
+        UNIQUE (obra_id, linha_excel)
 );

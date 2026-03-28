@@ -17,6 +17,12 @@ class RepositorioImportacaoExcel:
             codigo_obra VARCHAR(100) NULL,
             nome_obra VARCHAR(255) NOT NULL,
             nome_ficheiro VARCHAR(255) NULL,
+            nome_base VARCHAR(150) NULL,
+            referencia_obra VARCHAR(150) NULL,
+            num_encomenda_phc VARCHAR(50) NULL,
+            versao_obra VARCHAR(20) NULL,
+            ano_obra VARCHAR(20) NULL,
+            cliente_codigo VARCHAR(100) NULL,
             ficheiro_origem VARCHAR(500) NOT NULL,
             hash_ficheiro VARCHAR(64) NULL,
             tamanho_ficheiro BIGINT NULL,
@@ -70,6 +76,12 @@ class RepositorioImportacaoExcel:
 
     DEFINICOES_COLUNAS_OBRAS = {
         "nome_ficheiro": "VARCHAR(255) NULL",
+        "nome_base": "VARCHAR(150) NULL",
+        "referencia_obra": "VARCHAR(150) NULL",
+        "num_encomenda_phc": "VARCHAR(50) NULL",
+        "versao_obra": "VARCHAR(20) NULL",
+        "ano_obra": "VARCHAR(20) NULL",
+        "cliente_codigo": "VARCHAR(100) NULL",
         "hash_ficheiro": "VARCHAR(64) NULL",
         "tamanho_ficheiro": "BIGINT NULL",
         "data_ficheiro": "DATETIME NULL",
@@ -115,6 +127,12 @@ class RepositorioImportacaoExcel:
             codigo_obra,
             nome_obra,
             nome_ficheiro,
+            nome_base,
+            referencia_obra,
+            num_encomenda_phc,
+            versao_obra,
+            ano_obra,
+            cliente_codigo,
             ficheiro_origem,
             hash_ficheiro,
             tamanho_ficheiro,
@@ -122,13 +140,19 @@ class RepositorioImportacaoExcel:
             folha_origem,
             observacoes
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     SQL_ATUALIZAR_METADADOS_OBRA = """
         UPDATE obras
         SET
             nome_ficheiro = %s,
+            nome_base = %s,
+            referencia_obra = %s,
+            num_encomenda_phc = %s,
+            versao_obra = %s,
+            ano_obra = %s,
+            cliente_codigo = %s,
             ficheiro_origem = %s,
             hash_ficheiro = %s,
             tamanho_ficheiro = %s,
@@ -309,6 +333,12 @@ class RepositorioImportacaoExcel:
                     obra.codigo_obra,
                     obra.nome_obra,
                     obra.nome_ficheiro or None,
+                    obra.nome_base or None,
+                    obra.referencia_obra or None,
+                    obra.num_encomenda_phc or None,
+                    obra.versao_obra or None,
+                    obra.ano_obra or None,
+                    obra.cliente_codigo or None,
                     obra.caminho_ficheiro,
                     obra.hash_ficheiro or None,
                     obra.tamanho_ficheiro,
@@ -330,6 +360,12 @@ class RepositorioImportacaoExcel:
                 self.SQL_ATUALIZAR_METADADOS_OBRA,
                 (
                     obra.nome_ficheiro or None,
+                    obra.nome_base or None,
+                    obra.referencia_obra or None,
+                    obra.num_encomenda_phc or None,
+                    obra.versao_obra or None,
+                    obra.ano_obra or None,
+                    obra.cliente_codigo or None,
                     obra.caminho_ficheiro,
                     obra.hash_ficheiro or None,
                     obra.tamanho_ficheiro,

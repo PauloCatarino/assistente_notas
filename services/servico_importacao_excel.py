@@ -9,7 +9,7 @@ from database.db_connection import GestorLigacaoMySQL
 from database.repositorio_importacao_excel import RepositorioImportacaoExcel
 from importers.importar_excel_cutrite import ImportadorFolhasExcel
 from importers.importar_obras import ImportadorObras
-from models.schemas import ResultadoImportacaoExcel
+from models.schemas import ResultadoImportacaoExcel, ResultadoImportacaoLoteExcel
 
 
 class ServicoImportacaoExcel:
@@ -22,6 +22,51 @@ class ServicoImportacaoExcel:
         self.importador_folhas = ImportadorFolhasExcel()
         self.gestor_bd = GestorLigacaoMySQL(self.configuracao)
         self.repositorio = RepositorioImportacaoExcel()
+
+    def importar_pasta_excel(self, pasta_origem: Path | None = None) -> ResultadoImportacaoLoteExcel:
+        """Importa todos os ficheiros `.xlsm` encontrados numa pasta.
+
+        A escolha por `.xlsm` nesta fase segue o formato real usado
+        nas listas de material recebidas do IMOS/Automation.
+        """
+        pasta_origem = Path(pasta_origem or self.configuracao.base_dir).resolve()
+        importador_local = ImportadorObras(pasta_origem)
+        ficheiros_excel = importador_local.listar_ficheiros_excel(extensoes={".xlsm"})
+
+        resultados: list[ResultadoImportacaoExcel] = []
+        erros: list[str] = []
+        totais_linhas_por_estado: dict[str, int] = {}
+        total_ficheiros_importados = 0
+        total_duplicados_ignorados = 0
+
+        for caminho_ficheiro in ficheiros_excel:
+            try:
+                resultado = self.importar_ficheiro_excel(caminho_ficheiro)
+                resultados.append(resultado)
+
+                if resultado.duplicado_bloqueado:
+                    total_duplicados_ignorados += 1
+                    continue
+
+                total_ficheiros_importados += 1
+                for nome_folha, total_linhas in resultado.totais_por_folha.items():
+                    estado_origem = resultado.estados_por_folha.get(nome_folha, nome_folha)
+                    totais_linhas_por_estado[estado_origem] = (
+                        totais_linhas_por_estado.get(estado_origem, 0) + total_linhas
+                    )
+            except Exception as erro:
+                erros.append(f"{caminho_ficheiro.name}: {erro}")
+
+        return ResultadoImportacaoLoteExcel(
+            pasta_origem=str(pasta_origem),
+            total_ficheiros_encontrados=len(ficheiros_excel),
+            total_ficheiros_importados=total_ficheiros_importados,
+            total_duplicados_ignorados=total_duplicados_ignorados,
+            total_erros=len(erros),
+            totais_linhas_por_estado=totais_linhas_por_estado,
+            resultados=resultados,
+            erros=erros,
+        )
 
     def importar_ficheiro_excel(self, caminho_ficheiro: Path) -> ResultadoImportacaoExcel:
         """Importa uma obra Excel para MySQL e devolve um resumo simples."""

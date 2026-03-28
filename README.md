@@ -2,44 +2,46 @@
 
 Projeto Python para apoiar o preenchimento inteligente da coluna `Notas` em ficheiros Excel de producao de mobiliario exportados do IMOS.
 
-Nesta fase o foco continua a ser qualidade de dados, sem IA, sem `.mpr` e sem `FINAL_VALIDADO`. O objetivo e melhorar a ligacao entre os estados `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`.
+Nesta fase o foco deixou de ser apenas gerar sugestoes. O objetivo passou a ser validar, no Excel, se o assistente e realmente util.
 
-## Objetivo atual
+## O que esta fase faz
 
-- importar ficheiros Excel para MySQL
-- bloquear reimportacoes do mesmo ficheiro
-- guardar linhas de `LISTA_ORDENADA` e `LISTAGEM_CUT_RITE`
-- gerar `chave_ligacao` v2 para agrupar candidatos
-- comparar estados com correspondencia forte e tolerante
-- classificar diferencas de forma mais util para leitura humana
-- gerar um resumo simples no terminal e um CSV opcional
+- importa obras Excel para MySQL
+- bloqueia duplicados
+- importa em lote varias obras de 2026
+- interpreta partes do nome do ficheiro da obra
+- compara `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`
+- gera sugestoes simples de `Notas` com historico MySQL
+- cria ficheiros de validacao em Excel e/ou CSV
+- importa feedback manual do utilizador
+- gera relatorio de qualidade com base no feedback
 
-## Estados atualmente usados
+## O que esta fase ainda nao faz
 
-- `ORIGINAL_IMOS`
-- `TRANSFORMADO_AUTOMATION`
+- nao usa `.mpr`
+- nao usa `FINAL_VALIDADO`
+- nao escreve automaticamente na coluna `Notas`
+- nao usa IA avancada
 
-O estado `FINAL_VALIDADO` ainda nao esta a ser usado, mas a estrutura continua preparada para essa fase.
+Isto e intencional. Antes de automatizar mais, o projeto precisa de provar utilidade pratica no Excel.
 
-## Estrutura do projeto
+## Estrutura principal
 
 ```text
 assistente_notas/
-|-- .env.example
-|-- .gitignore
 |-- README.md
-|-- gerar_resumo_comparacao.py
 |-- importar_obra_excel.py
-|-- main.py
-|-- requirements.txt
-|-- testar_duplicados_e_comparacao.py
+|-- importar_obras_lote.py
+|-- analisar_excel_sugestoes.py
+|-- importar_feedback_sugestoes.py
+|-- relatorio_qualidade_sugestoes.py
+|-- testar_validacao_obra.py
+|-- testar_lote_e_sugestoes.py
 |-- config/
-|-- data/
 |-- database/
 |-- importers/
 |-- logs/
 |-- models/
-|-- parsers/
 |-- services/
 |-- sql/
 |-- tests/
@@ -72,204 +74,228 @@ Exemplo:
 Copy-Item .env.example .env
 ```
 
-## Como arrancar o projeto
+## Importacao individual
 
 ```powershell
 cd assistente_notas
-python main.py
+python importar_obra_excel.py --ficheiro Lista_Material_0556_01_26_JF_VIVA.xlsm
 ```
 
-## Como funciona a importacao Excel -> MySQL
-
-O script principal de importacao e:
+## Importacao em lote
 
 ```powershell
 cd assistente_notas
-python importar_obra_excel.py --ficheiro Lista_Material.xlsm
+python importar_obras_lote.py
 ```
 
-Este script:
+Se quiseres outra pasta:
 
-- le os metadados do ficheiro Excel
-- identifica as folhas `LISTA_ORDENADA` e `LISTAGEM_CUT_RITE`
-- mapeia as colunas configuradas
-- insere a obra na tabela `obras`
-- insere as linhas na tabela `linhas_obra`
-- guarda `estado_origem`, `nome_folha_origem`, `linha_excel` e `chave_ligacao`
+```powershell
+cd assistente_notas
+python importar_obras_lote.py --pasta C:\caminho\para\obras
+```
 
-## Como funciona o bloqueio de duplicados
+O resumo mostra:
 
-Antes de importar, o sistema procura se o ficheiro ja foi carregado.
+- n de ficheiros encontrados
+- n de ficheiros importados
+- n de duplicados ignorados
+- n de erros
+- linhas importadas por estado
 
-Estrategia usada, por esta ordem:
+## Interpretacao do nome da obra
 
-1. `hash_ficheiro`
-2. `ficheiro_origem` apenas para registos antigos sem hash
-3. `nome_ficheiro + nome_obra + tamanho_ficheiro` apenas para registos antigos sem hash
+Quando o ficheiro segue o padrao:
 
-Se encontrar uma obra existente:
+```text
+Lista_Material_0560_01_26_JF_VIVA.xlsm
+```
 
-- a importacao e bloqueada
-- a obra nao volta a ser inserida
-- as linhas nao voltam a ser inseridas
-- o terminal mostra um aviso claro
+o projeto tenta extrair:
 
-Campos usados na tabela `obras` nesta fase:
+- `nome_base = Lista_Material`
+- `referencia_obra = 0560_01_26_JF_VIVA`
+- `num_encomenda_phc = 0560`
+- `versao_obra = 01`
+- `ano_obra = 26`
+- `cliente_codigo = JF_VIVA`
 
-- `nome_ficheiro`
-- `ficheiro_origem`
-- `hash_ficheiro`
-- `tamanho_ficheiro`
-- `data_ficheiro`
+Esses campos sao guardados na tabela `obras`.
 
-## Como funciona a chave_ligacao v2
+## Como funciona o motor simples de sugestoes
 
-A `chave_ligacao` v2 ja nao tenta resolver a ligacao sozinha. Nesta fase ela serve para agrupar candidatos provaveis.
+Nesta fase o motor usa apenas historico MySQL, sem `.mpr` e sem IA.
 
-Campos usados para a chave tolerante:
+Campos considerados:
 
 - `descricao`
 - `material`
 - `artigo`
 - `veio`
+- `esp`
+- `esp_mat`
+- `esp_final`
+- `orla_esq`
+- `orla_dir`
+- `orla_cima`
+- `orla_baixo`
 
-Motivo:
+Saida por linha:
 
-- estes campos tendem a ser mais estaveis entre `ORIGINAL_IMOS` e `TRANSFORMADO_AUTOMATION`
-- `comp`, `larg` e `qt` podem mudar, arredondar ou surgir trocados apos o Automation
+- `sugestao_1`
+- `score_1`
+- `sugestao_2`
+- `score_2`
+- `justificacao`
 
-Regras usadas:
+Regra de seguranca:
 
-- normalizacao de espacos
-- normalizacao de maiusculas e minusculas
-- remocao de acentos para comparacao
-- conversao de nulos para vazio controlado
-- geracao de um hash curto e estavel
+- se o score ficar abaixo do limiar minimo, a sugestao fica vazia
 
-## Como funciona a correspondencia v2
+## Como gerar o ficheiro de validacao
 
-A comparacao trabalha por niveis:
-
-1. `FORTE`
-   quando a assinatura completa coincide em `descricao`, `material`, `comp`, `larg`, `qt`, `artigo` e `veio`
-2. `TOLERANTE`
-   quando a assinatura forte nao coincide, mas o score de semelhanca passa o limiar minimo
-3. `SEM_PAR`
-   quando nenhuma ligacao aceitavel e encontrada
-
-Campos considerados no score:
-
-- `descricao`
-- `material`
-- `artigo`
-- `veio`
-- `qt`
-- `comp` e `larg`
-
-Detalhes importantes da v2:
-
-- `comp` e `larg` aceitam pequenas tolerancias numericas
-- `comp` e `larg` tambem podem ser comparados de forma cruzada
-- isto ajuda quando a peca aparece rodada entre os dois estados
-
-Importante:
-esta v2 ainda e uma heuristica simples. Foi feita para melhorar ligacoes corretas sem introduzir logica "magica". Pode evoluir mais tarde de forma controlada.
-
-## Como funciona a classificacao das diferencas
-
-As diferencas passam a ser classificadas com tipos mais uteis:
-
-- `DESCRICAO_ALTERADA`
-- `MATERIAL_ALTERADO`
-- `ARTIGO_ALTERADO`
-- `VEIO_ALTERADO`
-- `MEDIDA_ALTERADA`
-- `ORLA_ALTERADA`
-- `CNC_ALTERADO`
-- `NOTA_ADICIONADA`
-- `NOTA_REMOVIDA`
-- `NOTA_ALTERADA`
-- `LINHA_SEM_PAR`
-- `CAMPO_ALTERADO`
-
-As diferencas continuam a ser guardadas em `diferencas_estados`, agora com:
-
-- `nivel_correspondencia`
-- `score_correspondencia`
-
-## Como gerar um resumo da comparacao
-
-Script novo desta fase:
+Forma simples para uma obra real:
 
 ```powershell
 cd assistente_notas
-python gerar_resumo_comparacao.py --ficheiro Lista_Material.xlsm
+python testar_validacao_obra.py --ficheiro Lista_Material_0556_01_26_JF_VIVA.xlsm --gerar-csv
 ```
 
-Este script mostra:
+Isto gera:
+
+- um ficheiro Excel de validacao `.xlsx`
+- opcionalmente um CSV de apoio
+
+Se quiseres usar diretamente o script principal de analise:
+
+```powershell
+cd assistente_notas
+python analisar_excel_sugestoes.py --ficheiro Lista_Material_0556_01_26_JF_VIVA.xlsm --gerar-csv
+```
+
+Colunas de validacao:
 
 - `obra_id`
-- total de linhas em `ORIGINAL_IMOS`
-- total de linhas em `TRANSFORMADO_AUTOMATION`
-- total de chaves ligadas
-- total de pares ligados
-- pares por nivel `FORTE` e `TOLERANTE`
-- total de linhas sem correspondencia
-- total de diferencas
-- top tipos de diferenca
+- `linha_excel`
+- `descricao`
+- `material`
+- `artigo`
+- `notas_atual`
+- `sugestao_1`
+- `score_1`
+- `sugestao_2`
+- `score_2`
+- `justificacao`
+- `validacao_utilizador`
+- `nota_final_utilizador`
 
-Para gerar tambem um CSV de apoio:
+## Como preencher o feedback no Excel
+
+1. Abrir o ficheiro `.xlsx` gerado na pasta `logs`
+2. Rever cada linha
+3. Preencher `validacao_utilizador`
+4. Se necessario, preencher `nota_final_utilizador`
+
+Sugestao pratica para `validacao_utilizador`:
+
+- `aceite`
+- `rejeitada`
+- `editada`
+
+Nao e obrigatorio usar apenas estes termos, mas sao os mais consistentes para o relatorio.
+
+## Como importar o feedback para MySQL
+
+Depois de preencher o ficheiro:
 
 ```powershell
 cd assistente_notas
-python gerar_resumo_comparacao.py --ficheiro Lista_Material.xlsm --gerar-csv
+python importar_feedback_sugestoes.py --ficheiro logs\validacao_sugestoes_Lista_Material_0556_01_26_JF_VIVA.xlsx
 ```
 
-CSV por omissao:
-
-- `logs/comparacao_obra_<id>.csv`
-
-Tambem podes escolher o caminho:
+Tambem funciona com CSV:
 
 ```powershell
 cd assistente_notas
-python gerar_resumo_comparacao.py --obra-id 1 --csv logs\minha_comparacao.csv
+python importar_feedback_sugestoes.py --ficheiro logs\validacao_sugestoes_Lista_Material_0556_01_26_JF_VIVA.csv
 ```
 
-## Como testar duplicado + comparacao
+O feedback fica guardado em:
 
-O script de teste desta ronda e:
+- `feedback_sugestoes_notas`
+
+## Como gerar o relatorio de qualidade
+
+Relatorio global:
 
 ```powershell
 cd assistente_notas
-python testar_duplicados_e_comparacao.py --ficheiro Lista_Material.xlsm
+python relatorio_qualidade_sugestoes.py
 ```
 
-Este script:
+Relatorio por obra:
 
-- tenta importar novamente o ficheiro
-- mostra se o duplicado foi bloqueado
-- recalcula a comparacao entre estados
-- mostra os totais principais, os pares por nivel e o top de diferencas
+```powershell
+cd assistente_notas
+python relatorio_qualidade_sugestoes.py --obra-id 50
+```
 
-## Base de dados MySQL
+O relatorio mostra:
 
-Foi incluido um esquema inicial em:
+- total de linhas analisadas
+- total de linhas com sugestao
+- total de linhas sem sugestao
+- total de sugestoes aceites
+- total de sugestoes rejeitadas
+- total de sugestoes editadas
+- taxa de cobertura
+- taxa de aceitacao
+- taxa de rejeicao
+- descricoes com mais acertos
+- descricoes com mais falhas
+- notas mais aceites
+- notas mais rejeitadas
 
-- `sql/schema_inicial.sql`
+## Fluxo recomendado desta fase
 
-Tabelas principais desta fase:
+1. Importar o historico:
+
+```powershell
+cd assistente_notas
+python importar_obras_lote.py
+```
+
+2. Gerar ficheiro de validacao para uma obra:
+
+```powershell
+cd assistente_notas
+python testar_validacao_obra.py --ficheiro Lista_Material_0556_01_26_JF_VIVA.xlsm --gerar-csv
+```
+
+3. Preencher `validacao_utilizador` e `nota_final_utilizador` no Excel
+
+4. Importar o feedback:
+
+```powershell
+cd assistente_notas
+python importar_feedback_sugestoes.py --ficheiro logs\validacao_sugestoes_Lista_Material_0556_01_26_JF_VIVA.xlsx
+```
+
+5. Gerar o relatorio:
+
+```powershell
+cd assistente_notas
+python relatorio_qualidade_sugestoes.py --obra-id 50
+```
+
+## Base de dados
+
+Tabelas principais nesta fase:
 
 - `obras`
 - `linhas_obra`
 - `diferencas_estados`
-
-Tabelas preparadas para fases seguintes:
-
-- `cnc_programas`
-- `linhas_obra_cnc`
-- `cnc_tokens`
-- `sugestoes_notas_log`
+- `feedback_sugestoes_notas`
 
 ## Testes
 
@@ -278,12 +304,10 @@ cd assistente_notas
 python -m unittest
 ```
 
-## Limites intencionais desta fase
+## Motivo desta fase
 
-- ainda nao existe `FINAL_VALIDADO`
-- ainda nao existe integracao `.mpr` nesta comparacao
-- ainda nao existe sugestao inteligente de notas
-- ainda nao existe analise estatistica avancada
+Antes de introduzir `.mpr`, `FINAL_VALIDADO` ou escrita automatica em `Notas`, o projeto precisa de responder a uma pergunta simples:
 
-Isto e intencional.
-O objetivo desta ronda e melhorar a qualidade da correspondencia entre estados antes de avancar para as fases seguintes.
+o assistente acerta o suficiente para valer a pena?
+
+Esta fase existe exatamente para medir isso de forma pratica e controlada.

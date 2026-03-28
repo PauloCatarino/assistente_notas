@@ -16,6 +16,12 @@ class ObraExcel:
     caminho_ficheiro: str
     folhas_disponiveis: list[str] = field(default_factory=list)
     nome_ficheiro: str = ""
+    nome_base: str = ""
+    referencia_obra: str = ""
+    num_encomenda_phc: str = ""
+    versao_obra: str = ""
+    ano_obra: str = ""
+    cliente_codigo: str = ""
     hash_ficheiro: str = ""
     tamanho_ficheiro: int | None = None
     data_ficheiro: datetime | None = None
@@ -126,6 +132,24 @@ class ResultadoImportacaoExcel:
 
 
 @dataclass(slots=True)
+class ResultadoImportacaoLoteExcel:
+    """Resumo da importacao de varios ficheiros Excel."""
+
+    pasta_origem: str
+    total_ficheiros_encontrados: int
+    total_ficheiros_importados: int
+    total_duplicados_ignorados: int
+    total_erros: int
+    totais_linhas_por_estado: dict[str, int] = field(default_factory=dict)
+    resultados: list[ResultadoImportacaoExcel] = field(default_factory=list)
+    erros: list[str] = field(default_factory=list)
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class ParCorrespondencia:
     """Representa um par ligado entre estados."""
 
@@ -224,6 +248,111 @@ class SugestaoNotaLog:
     estado: str
     detalhes_json: dict[str, Any] = field(default_factory=dict)
     criado_em: str = ""
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class SugestaoNotaLinhaExcel:
+    """Representa a sugestao gerada para uma linha lida diretamente do Excel."""
+
+    obra_id: int | None
+    linha_excel: int
+    descricao: str
+    material: str
+    artigo: str
+    notas_atual: str
+    sugestao_1: str = ""
+    score_1: int = 0
+    sugestao_2: str = ""
+    score_2: int = 0
+    justificacao: str = ""
+    validacao_utilizador: str = ""
+    nota_final_utilizador: str = ""
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ResultadoAnaliseSugestoesExcel:
+    """Resumo da analise de sugestoes para um ficheiro Excel."""
+
+    caminho_ficheiro: str
+    nome_folha_analisada: str
+    obra_id: int | None
+    total_obras_historico: int
+    total_linhas_com_nota_historica: int
+    total_linhas_analisadas: int
+    total_sugestoes_geradas: int
+    total_linhas_sem_sugestao: int
+    caminho_csv_saida: str = ""
+    caminho_excel_saida: str = ""
+    sugestoes: list[SugestaoNotaLinhaExcel] = field(default_factory=list)
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class FeedbackSugestaoNota:
+    """Representa o feedback manual recolhido de um ficheiro de validacao."""
+
+    obra_id: int
+    linha_excel: int
+    descricao: str
+    material: str
+    artigo: str
+    notas_atual: str
+    sugestao_1: str
+    score_1: int
+    sugestao_2: str
+    score_2: int
+    justificacao: str
+    validacao_utilizador: str
+    nota_final_utilizador: str
+    data_feedback: datetime
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class ResultadoImportacaoFeedbackSugestoes:
+    """Resumo da importacao do feedback manual."""
+
+    caminho_ficheiro: str
+    total_registos_lidos: int
+    total_registos_importados: int
+    total_registos_ignorados: int
+
+    def para_dict(self) -> dict[str, Any]:
+        """Converte a instancia para dicionario."""
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class RelatorioQualidadeSugestoes:
+    """Resumo agregado da qualidade do assistente com base no feedback."""
+
+    total_linhas_analisadas: int
+    total_linhas_com_sugestao: int
+    total_linhas_sem_sugestao: int
+    total_sugestoes_aceites: int
+    total_sugestoes_rejeitadas: int
+    total_sugestoes_editadas: int
+    taxa_cobertura: float
+    taxa_aceitacao: float
+    taxa_rejeicao: float
+    top_descricoes_com_mais_acertos: list[tuple[str, int]] = field(default_factory=list)
+    top_descricoes_com_mais_falhas: list[tuple[str, int]] = field(default_factory=list)
+    top_notas_mais_aceites: list[tuple[str, int]] = field(default_factory=list)
+    top_notas_mais_rejeitadas: list[tuple[str, int]] = field(default_factory=list)
 
     def para_dict(self) -> dict[str, Any]:
         """Converte a instancia para dicionario."""
