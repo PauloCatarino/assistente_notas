@@ -152,11 +152,14 @@ CREATE TABLE IF NOT EXISTS feedback_sugestoes_notas (
     justificacao TEXT NULL,
     validacao_utilizador VARCHAR(100) NULL,
     nota_final_utilizador VARCHAR(500) NULL,
+    feedback_hash VARCHAR(64) NULL,
     data_feedback DATETIME NOT NULL,
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_feedback_sugestoes_obras
         FOREIGN KEY (obra_id) REFERENCES obras (id),
     CONSTRAINT uk_feedback_sugestao_obra_linha
-        UNIQUE (obra_id, linha_excel)
+        UNIQUE (obra_id, linha_excel),
+    CONSTRAINT uk_feedback_sugestao_hash
+        UNIQUE (feedback_hash)
 );

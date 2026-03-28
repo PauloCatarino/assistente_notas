@@ -39,6 +39,7 @@ def main() -> int:
     print(f"n de registos lidos: {resultado.total_registos_lidos}")
     print(f"n de registos importados: {resultado.total_registos_importados}")
     print(f"n de registos ignorados: {resultado.total_registos_ignorados}")
+    print(f"n de duplicados ignorados: {resultado.total_registos_duplicados}")
 
     return 0
 

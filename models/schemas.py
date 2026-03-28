@@ -316,6 +316,7 @@ class FeedbackSugestaoNota:
     validacao_utilizador: str
     nota_final_utilizador: str
     data_feedback: datetime
+    feedback_hash: str = ""
 
     def para_dict(self) -> dict[str, Any]:
         """Converte a instancia para dicionario."""
@@ -330,6 +331,7 @@ class ResultadoImportacaoFeedbackSugestoes:
     total_registos_lidos: int
     total_registos_importados: int
     total_registos_ignorados: int
+    total_registos_duplicados: int = 0
 
     def para_dict(self) -> dict[str, Any]:
         """Converte a instancia para dicionario."""
@@ -349,10 +351,16 @@ class RelatorioQualidadeSugestoes:
     taxa_cobertura: float
     taxa_aceitacao: float
     taxa_rejeicao: float
+    cobertura_recalibrada_estimada: float = 0.0
+    aceitacao_recalibrada_estimada: float = 0.0
+    rejeicao_recalibrada_estimada: float = 0.0
+    total_padroes_recalibrados: int = 0
     top_descricoes_com_mais_acertos: list[tuple[str, int]] = field(default_factory=list)
     top_descricoes_com_mais_falhas: list[tuple[str, int]] = field(default_factory=list)
     top_notas_mais_aceites: list[tuple[str, int]] = field(default_factory=list)
     top_notas_mais_rejeitadas: list[tuple[str, int]] = field(default_factory=list)
+    top_sugestoes_penalizadas: list[tuple[str, int]] = field(default_factory=list)
+    top_sugestoes_reforcadas: list[tuple[str, int]] = field(default_factory=list)
 
     def para_dict(self) -> dict[str, Any]:
         """Converte a instancia para dicionario."""

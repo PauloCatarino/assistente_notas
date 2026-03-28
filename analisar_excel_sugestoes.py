@@ -36,6 +36,11 @@ def criar_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Nao gera o ficheiro Excel de validacao.",
     )
+    parser.add_argument(
+        "--sem-recalibracao",
+        action="store_true",
+        help="Usa o motor base, sem ajustes por feedback real.",
+    )
     return parser
 
 
@@ -55,12 +60,14 @@ def main() -> int:
             caminho_excel_saida=caminho_excel,
             gerar_csv=argumentos.gerar_csv or bool(argumentos.csv),
             gerar_excel=not argumentos.sem_excel,
+            usar_recalibracao=not argumentos.sem_recalibracao,
         )
     except Exception as erro:
         print(f"Erro na analise de sugestoes: {erro}")
         return 1
 
     print("Resumo da analise:")
+    print(f"modo: {'recalibrado' if not argumentos.sem_recalibracao else 'base'}")
     print(f"ficheiro: {resultado.caminho_ficheiro}")
     print(f"folha analisada: {resultado.nome_folha_analisada}")
     print(f"obra_id: {resultado.obra_id or 'nao resolvido'}")
